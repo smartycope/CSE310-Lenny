@@ -1,0 +1,6 @@
+wpa_cli
+add_network (Replies with #)
+set_network 1 ssid " * Hotspot Name * "
+set_network 1 psk " * Password * "
+select_network #
+

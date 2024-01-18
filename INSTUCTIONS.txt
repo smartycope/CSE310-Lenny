@@ -1,0 +1,18 @@
+TO USE LENNY:
+
+Step 1: Connecting
+Right now he's set up to auto-connect to my phone's hotspot. That way I can look on my 
+phone to see what the IP address is, and ssh in from my laptop also connected to my 
+hotspot. It's supposed to have a static IP, but it doesn't seem to work yet.
+
+Step 2: Running
+In the home folder there's a symlink to the relavant code called 'LennysCode'. cd into
+that folder, and you can either run main.py to run the main code, or open a python shell
+and import files directly and mess with the functions there (good for debugging).
+
+Commands:
+
+cd ECEN-361-Project/ECEN-361-Project/From\ Lenny/LennysCode/
+python main.py
+
+and there you go!
