@@ -8,7 +8,9 @@ from typing import Optional, Union
 # Cope's personal Python package, it's where SimpleGym is located
 from Cope.gym import SimpleGym
 # A lovely library that adds local variables to error traces
-from traceback_with_variables import activate_by_import
+try:
+    from traceback_with_variables import activate_by_import
+except: pass
 import numpy as np
 
 import gymnasium as gym
