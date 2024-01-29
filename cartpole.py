@@ -8,9 +8,7 @@ from typing import Optional, Union
 # Cope's personal Python package, it's where SimpleGym is located
 from Cope.gym import SimpleGym
 # A lovely library that adds local variables to error traces
-try:
-    from traceback_with_variables import activate_by_import
-except: pass
+# from traceback_with_variables import activate_by_import
 import numpy as np
 
 import gymnasium as gym
@@ -118,7 +116,7 @@ class CartPoleEnv(SimpleGym):
             dtype=np.float32,
         )
 
-        self.action_space = spaces.Discrete(2)
+        self.action_space = spaces.Box(-1, 1, (1,), dtype=np.float32)
         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
         self.state = None
@@ -159,10 +157,11 @@ class CartPoleEnv(SimpleGym):
             return 0.0
 
     def step(self, action) -> ('obs', 'reward', 'terminated', 'truncated', 'info'):
-        assert self.action_space.contains(action), f"{action!r} ({type(action)}) invalid"
+        # assert self.action_space.contains(action), f"{action!r} ({type(action)}) invalid"
         assert self.state is not None, "Call reset before using step method."
         x, x_dot, theta, theta_dot = self.state
-        force = self.force_mag if action == 1 else -self.force_mag
+        # force = self.force_mag if action == 1 else -self.force_mag
+        force = self.force_mag * action[0]
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
 
@@ -265,3 +264,6 @@ class CartPoleEnv(SimpleGym):
 # TODO: Simple gym should handle initialization better
 # TODO: Simple gym should handle FPS and pause and step itself
 # TODO: Simple gym should have a custom-render method (call render_{name} with getattr())
+# TODO: Simple gym should have an option to ensure action is within actionspace
+# TODO: Simple gym should give a warning if it can't install it's dependancies
+# TODO: import sys.exit in SimpleGym
