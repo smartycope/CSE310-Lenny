@@ -267,3 +267,4 @@ class CartPoleEnv(SimpleGym):
 # TODO: Simple gym should have an option to ensure action is within actionspace
 # TODO: Simple gym should give a warning if it can't install it's dependancies
 # TODO: import sys.exit in SimpleGym
+# TODO: step_print doesn't work, now that the surface has been flipped
