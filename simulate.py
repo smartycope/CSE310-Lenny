@@ -6,8 +6,8 @@ env = CartPoleEnv(render_mode='pygame')
 obs, info = env.reset()
 FPS = 20
 i = 0
-# default_action = np.array([1.])
-default_action = .5
+default_action = np.array([1.], np.float32)
+# default_action = .5
 
 while i < 1000:
     env.render()

@@ -7,6 +7,8 @@ import math
 from typing import Optional, Union
 # Cope's personal Python package, it's where SimpleGym is located
 from Cope.gym import SimpleGym
+import Cope
+assert Cope.__version__ >= '2.4.0', "SimpleGym requires Cope>=2.4.0. You can update Cope with `pip install --upgrade Cope`"
 # A lovely library that adds local variables to error traces
 # from traceback_with_variables import activate_by_import
 import numpy as np
@@ -87,9 +89,16 @@ class CartPoleEnv(SimpleGym):
     """
 
     def __init__(self, *args, force=10., **kwargs):
-        super().__init__(*args, max_steps=-1, screen_size=500, **kwargs)
-        # The default is dark grey
-        self.background_color = (255, 255, 255)
+        super().__init__(
+            *args,
+            max_steps=-1,
+            screen_size=500,
+            background_color=(255, 255, 255),
+            name='Lenny Simulation',
+            assert_valid_action=False,
+            **kwargs
+        )
+
         self.gravity = 9.8
         self.masscart = 1.0
         self.masspole = 0.1
@@ -120,13 +129,10 @@ class CartPoleEnv(SimpleGym):
         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
         self.state = None
-        self.steps_beyond_terminated = None
+        # self.steps_beyond_terminated = None
 
     def _get_obs(self):
         return self.state
-
-    def _get_info(self):
-        return {}
 
     def _get_terminated(self):
         x, x_dot, theta, theta_dot = self.state
@@ -157,8 +163,8 @@ class CartPoleEnv(SimpleGym):
             return 0.0
 
     def step(self, action) -> ('obs', 'reward', 'terminated', 'truncated', 'info'):
-        # assert self.action_space.contains(action), f"{action!r} ({type(action)}) invalid"
-        assert self.state is not None, "Call reset before using step method."
+        if self.paused and not self.increment: return super().step(action)
+
         x, x_dot, theta, theta_dot = self.state
         # force = self.force_mag if action == 1 else -self.force_mag
         force = self.force_mag * action[0]
@@ -198,7 +204,7 @@ class CartPoleEnv(SimpleGym):
             None, -0.05, 0.05  # default low
         )  # default high
         self.state = self.np_random.uniform(low=low, high=high, size=(4,))
-        self.steps_beyond_terminated = None
+        # self.steps_beyond_terminated = None
 
         return rtn
 
@@ -258,13 +264,3 @@ class CartPoleEnv(SimpleGym):
 
         # It's upside down for some reason
         self.surf = pygame.transform.flip(self.surf, False, True)
-
-
-# TODO: Simple gym should have a default function for _get_info()
-# TODO: Simple gym should handle initialization better
-# TODO: Simple gym should handle FPS and pause and step itself
-# TODO: Simple gym should have a custom-render method (call render_{name} with getattr())
-# TODO: Simple gym should have an option to ensure action is within actionspace
-# TODO: Simple gym should give a warning if it can't install it's dependancies
-# TODO: import sys.exit in SimpleGym
-# TODO: step_print doesn't work, now that the surface has been flipped
