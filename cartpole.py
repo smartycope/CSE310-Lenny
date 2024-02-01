@@ -88,16 +88,19 @@ class CartPoleEnv(SimpleGym):
         No additional arguments are currently supported.
     """
 
-    def __init__(self, *args, force=10., **kwargs):
+    def __init__(self, *args, force=10., start_angle_range=.05, bounds_size=2.4, **kwargs):
         super().__init__(
             *args,
             max_steps=-1,
             screen_size=500,
             background_color=(255, 255, 255),
             name='Lenny Simulation',
+            show_vars={'FPS': 'fps'},
             assert_valid_action=False,
+            verbose=False,
             **kwargs
         )
+        self._show_help = True
 
         self.gravity = 9.8
         self.masscart = 1.0
@@ -111,14 +114,11 @@ class CartPoleEnv(SimpleGym):
 
         # Angle at which to fail the episode
         self.theta_threshold_radians = 12 * 2 * math.pi / 360
-        self.x_threshold = 2.4
+        self.x_threshold = bounds_size
 
-        # Angle limit set to 2 * theta_threshold_radians so failing observation
-        # is still within bounds.
+        # Angle limit set to 2 * theta_threshold_radians so failing observation is still within bounds.
         high = np.array(
             [
-                self.x_threshold * 2,
-                np.finfo(np.float32).max,
                 self.theta_threshold_radians * 2,
                 np.finfo(np.float32).max,
             ],
@@ -128,16 +128,25 @@ class CartPoleEnv(SimpleGym):
         self.action_space = spaces.Box(-1, 1, (1,), dtype=np.float32)
         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
+        # Pole angle and pole angular velocity
         self.state = None
-        # self.steps_beyond_terminated = None
+        # cart x pos and cart velocity
+        self.pos_info = (0, 0)
+        self.start_angle_range = start_angle_range
+        # Whether the angle was previously positive or nto
+        self.prev_pos = None
 
     def _get_obs(self):
         return self.state
 
-    def _get_terminated(self):
-        x, x_dot, theta, theta_dot = self.state
+    def _get_info(self):
+        return self.pos_info
 
-        return bool(
+    def _get_terminated(self):
+        x, x_vel = self.pos_info
+        theta, theta_vel = self.state
+
+        return (
             x < -self.x_threshold
             or x > self.x_threshold
             or theta < -self.theta_threshold_radians
@@ -145,36 +154,50 @@ class CartPoleEnv(SimpleGym):
         )
 
     def _get_reward(self):
-        if not self._get_terminated():
-            return 1.0
-        elif self.steps_beyond_terminated is None:
-            # Pole just fell!
-            self.steps_beyond_terminated = 0
-            return 1.0
-        else:
-            if self.steps_beyond_terminated == 0:
-                logger.warn(
-                    "You are calling 'step()' even though this "
-                    "environment has already returned terminated = True. You "
-                    "should always call 'reset()' once you receive 'terminated = "
-                    "True' -- any further steps are undefined behavior."
-                )
-            self.steps_beyond_terminated += 1
-            return 0.0
+        # Falling hurts -- this helped a lot
+        if self._get_terminated():
+            return -100
 
-    def step(self, action) -> ('obs', 'reward', 'terminated', 'truncated', 'info'):
-        if self.paused and not self.increment: return super().step(action)
+        theta, theta_vel = self.state
 
-        x, x_dot, theta, theta_dot = self.state
-        # force = self.force_mag if action == 1 else -self.force_mag
+        # Base starting score
+        score = -50
+
+        # The longer the episode has gone on, the better
+        score += self.steps
+
+        # *really* incentivize really long episodes
+        if self.steps > 100:
+            score += self.steps
+
+        # We don't like the stick being at an angle
+        score -= abs(theta) * 50
+
+        # We like it if the stick is moving slowly
+        # score -= abs(theta_vel) * 10
+
+        # If we've just gone from +angle to -angle, or vice versa, that's good, that means that we've
+        # either just corrected ourselves, or we're balancing straight up
+        is_pos = theta > 0
+        if is_pos != self.prev_pos:
+            score += 100
+
+        return score
+
+    def _step(self, action):
+
+        x, x_vel = self.pos_info
+        theta, theta_vel = self.state
         force = self.force_mag * action[0]
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
 
+        self.prev_pos = theta > 0
+
         # For the interested reader:
         # https://coneural.org/florian/papers/05_cart_pole.pdf
         temp = (
-            force + self.polemass_length * theta_dot**2 * sintheta
+            force + self.polemass_length * theta_vel**2 * sintheta
         ) / self.total_mass
         thetaacc = (self.gravity * sintheta - costheta * temp) / (
             self.length * (4.0 / 3.0 - self.masspole * costheta**2 / self.total_mass)
@@ -182,50 +205,48 @@ class CartPoleEnv(SimpleGym):
         xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
 
         if self.kinematics_integrator == "euler":
-            x = x + self.tau * x_dot
-            x_dot = x_dot + self.tau * xacc
-            theta = theta + self.tau * theta_dot
-            theta_dot = theta_dot + self.tau * thetaacc
+            x = x + self.tau * x_vel
+            x_vel = x_vel + self.tau * xacc
+            theta = theta + self.tau * theta_vel
+            theta_vel = theta_vel + self.tau * thetaacc
         else:  # semi-implicit euler
-            x_dot = x_dot + self.tau * xacc
-            x = x + self.tau * x_dot
-            theta_dot = theta_dot + self.tau * thetaacc
-            theta = theta + self.tau * theta_dot
+            x_vel = x_vel + self.tau * xacc
+            x = x + self.tau * x_vel
+            theta_vel = theta_vel + self.tau * thetaacc
+            theta = theta + self.tau * theta_vel
 
-        self.state = (x, x_dot, theta, theta_dot)
+        self.pos_info = (x, x_vel)
+        if x == np.nan or x_vel == np.nan:
+            self.pos_info = (0, 0)
+        self.state = (theta, theta_vel)
 
-        return super().step(action)
-
-    def reset(self, *args, **kwargs) -> ('obs', 'info'):
-        rtn = super().reset(*args, **kwargs)
-        # Note that if you use custom reset bounds, it may lead to out-of-bound
-        # state/observations.
-        low, high = utils.maybe_parse_reset_bounds(
-            None, -0.05, 0.05  # default low
-        )  # default high
-        self.state = self.np_random.uniform(low=low, high=high, size=(4,))
-        # self.steps_beyond_terminated = None
-
-        return rtn
+    def _reset(self, seed=None, options=None):
+        self.state = self.np_random.uniform(low=-self.start_angle_range, high=self.start_angle_range, size=(2,))
+        self.state[1] = 0
+        self.pos_info = (0, 0)
+        self.prev_pos = self.state[0] > 0
 
     def render_pygame(self):
+        if self.state is None or self.pos_info is None: return
+
         world_width = self.x_threshold * 2
         scale = self.size / world_width
         polewidth = 10.0
-        polelen = scale * (2 * self.length)
+        # polelen = scale * (2 * self.length)
+        polelen = 10 * polewidth
         cartwidth = 50.0
         cartheight = 30.0
 
-        if self.state is None:
-            return
-
-        x = self.state
+        x, x_vel = self.pos_info
+        theta, theta_vel = self.state
 
         l, r, t, b = -cartwidth / 2, cartwidth / 2, cartheight / 2, -cartheight / 2
         axleoffset = cartheight / 4.0
-        cartx = x[0] * scale + self.size / 2.0  # MIDDLE OF CART
+        cartx = x * scale + self.size / 2.0  # MIDDLE OF CART
         carty = 100  # TOP OF CART
+        # Specify the bounds of the cart
         cart_coords = [(l, b), (l, t), (r, t), (r, b)]
+        # Apply the x offset to the bounds
         cart_coords = [(c[0] + cartx, c[1] + carty) for c in cart_coords]
         gfxdraw.aapolygon(self.surf, cart_coords, (0, 0, 0))
         gfxdraw.filled_polygon(self.surf, cart_coords, (0, 0, 0))
@@ -239,7 +260,7 @@ class CartPoleEnv(SimpleGym):
 
         pole_coords = []
         for coord in [(l, b), (l, t), (r, t), (r, b)]:
-            coord = pygame.math.Vector2(coord).rotate_rad(-x[2])
+            coord = pygame.math.Vector2(coord).rotate_rad(-theta)
             coord = (coord[0] + cartx, coord[1] + carty + axleoffset)
             pole_coords.append(coord)
         gfxdraw.aapolygon(self.surf, pole_coords, (202, 152, 101))
