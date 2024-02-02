@@ -158,6 +158,7 @@ class CartPoleEnv(SimpleGym):
         if self._get_terminated():
             return -100
 
+        x, x_vel = self.pos_info
         theta, theta_vel = self.state
 
         # Base starting score
@@ -167,11 +168,14 @@ class CartPoleEnv(SimpleGym):
         score += self.steps
 
         # *really* incentivize really long episodes
-        if self.steps > 100:
-            score += self.steps
+        # if self.steps > 100:
+            # score += self.steps
 
         # We don't like the stick being at an angle
-        score -= abs(theta) * 50
+        score -= abs(theta) * 300
+
+        # Stay near the center, dang it
+        score -= abs(x) * 3
 
         # We like it if the stick is moving slowly
         # score -= abs(theta_vel) * 10
@@ -180,12 +184,13 @@ class CartPoleEnv(SimpleGym):
         # either just corrected ourselves, or we're balancing straight up
         is_pos = theta > 0
         if is_pos != self.prev_pos:
-            score += 100
+            score += 150
 
         return score
+        # Try bounding the reward maybe??
+        # return min(max(-100, round(score)), 300)
 
     def _step(self, action):
-
         x, x_vel = self.pos_info
         theta, theta_vel = self.state
         force = self.force_mag * action[0]
@@ -222,7 +227,7 @@ class CartPoleEnv(SimpleGym):
 
     def _reset(self, seed=None, options=None):
         self.state = self.np_random.uniform(low=-self.start_angle_range, high=self.start_angle_range, size=(2,))
-        self.state[1] = 0
+        # self.state[1] = 0
         self.pos_info = (0, 0)
         self.prev_pos = self.state[0] > 0
 
@@ -232,8 +237,8 @@ class CartPoleEnv(SimpleGym):
         world_width = self.x_threshold * 2
         scale = self.size / world_width
         polewidth = 10.0
-        # polelen = scale * (2 * self.length)
-        polelen = 10 * polewidth
+        polelen = scale * (2 * self.length)
+        # polelen = 10 * polewidth
         cartwidth = 50.0
         cartheight = 30.0
 
