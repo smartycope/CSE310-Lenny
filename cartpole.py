@@ -165,7 +165,7 @@ class CartPoleEnv(SimpleGym):
         score = -50
 
         # The longer the episode has gone on, the better
-        score += self.steps
+        score += self.steps / 3
 
         # *really* incentivize really long episodes
         # if self.steps > 100:
@@ -175,7 +175,7 @@ class CartPoleEnv(SimpleGym):
         score -= abs(theta) * 300
 
         # Stay near the center, dang it
-        score -= abs(x) * 3
+        score -= abs(x) * 100
 
         # We like it if the stick is moving slowly
         # score -= abs(theta_vel) * 10
@@ -184,7 +184,7 @@ class CartPoleEnv(SimpleGym):
         # either just corrected ourselves, or we're balancing straight up
         is_pos = theta > 0
         if is_pos != self.prev_pos:
-            score += 150
+            score += 200
 
         return score
         # Try bounding the reward maybe??
