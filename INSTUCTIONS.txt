@@ -15,4 +15,4 @@ Commands:
 cd ECEN-361-Project/ECEN-361-Project/From\ Lenny/LennysCode/
 python main.py
 
-and there you go!
+and there you go!!

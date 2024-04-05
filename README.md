@@ -28,3 +28,4 @@ For this project, we will be using:
 
 # Resources
 None yet
+But there will be soon!

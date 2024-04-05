@@ -2,6 +2,7 @@
 Classic cart-pole system implemented by Rich Sutton et al.
 Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
+Other usefull documentation is on the web..
 """
 import math
 from typing import Optional, Union
